@@ -7,16 +7,13 @@ registro de consultas médicas/profissionais, consolidando: arquitetura **MVC**,
 **EF Core (Code First + Migrations)**, **segurança** (autenticação por cookie, senhas
 com hash, rotas protegidas) e **protocolos de comunicação** (API REST + Swagger).
 
-## Participantes do grupo (ordem alfabética)
+## Autor
 
-<!-- TODO: preencher com os nomes dos integrantes em ordem alfabética -->
-- Nome Sobrenome
-- Nome Sobrenome
+- Claiver Corrêa dos Reis Ribeiro (trabalho individual)
 
 ## Vídeo demonstrativo
 
-**Link:** <!-- TODO: colar aqui o link do vídeo (Loom / YouTube / similar) -->
-`https://...`
+**Link:** _a adicionar_ <!-- TODO: colar aqui o link do vídeo (Loom / YouTube / similar) -->
 
 O vídeo mostra o sistema funcionando: cadastro de usuário, login e registro de consulta.
 
