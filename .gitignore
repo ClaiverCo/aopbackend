@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Artefato de entrega (enviar no portal, nao versionar)
+entrega-portal.pdf
