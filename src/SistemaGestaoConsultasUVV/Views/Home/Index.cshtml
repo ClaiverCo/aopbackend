@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Início";
+}
+
+<div class="text-center py-4">
+    <h1 class="display-5">Sistema de Gestão de Consultas UVV</h1>
+    <p class="lead">Cadastre-se, faça login e gerencie suas consultas médicas ou profissionais.</p>
+
+    @if (User.Identity is not null && User.Identity.IsAuthenticated)
+    {
+        <a class="btn btn-primary btn-lg mt-3" asp-controller="Consultas" asp-action="Index">Ver minhas consultas</a>
+    }
+    else
+    {
+        <div class="mt-3">
+            <a class="btn btn-primary btn-lg" asp-controller="Conta" asp-action="Registro">Criar conta</a>
+            <a class="btn btn-outline-secondary btn-lg" asp-controller="Conta" asp-action="Login">Entrar</a>
+        </div>
+    }
+</div>
+
+<hr />
+<div class="row text-center">
+    <div class="col-md-4">
+        <h5>Arquitetura MVC</h5>
+        <p class="text-muted">Controllers, Views e Models com separação de preocupações.</p>
+    </div>
+    <div class="col-md-4">
+        <h5>EF Core (Code First)</h5>
+        <p class="text-muted">Banco SQL Server gerado por Migrations a partir das classes de modelo.</p>
+    </div>
+    <div class="col-md-4">
+        <h5>Segurança</h5>
+        <p class="text-muted">Cookie authentication, senhas com hash e rotas protegidas por [Authorize].</p>
+    </div>
+</div>

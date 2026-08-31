@@ -1,0 +1,24 @@
+@model Consulta
+@{
+    ViewData["Title"] = "Excluir Consulta";
+}
+
+<h2>@ViewData["Title"]</h2>
+<p class="text-danger">Tem certeza de que deseja excluir esta consulta?</p>
+
+<dl class="row">
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Especialidade)</dt>
+    <dd class="col-sm-9">@Model.Especialidade</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.DataHora)</dt>
+    <dd class="col-sm-9">@Model.DataHora.ToString("dd/MM/yyyy HH:mm")</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Descricao)</dt>
+    <dd class="col-sm-9">@Model.Descricao</dd>
+</dl>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Excluir</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+</form>
