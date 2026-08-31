@@ -22,8 +22,7 @@ O vídeo mostra o sistema funcionando: cadastro de usuário, login e registro de
 
 ## Repositório
 
-<!-- TODO: colar aqui a URL do repositório no GitHub -->
-`https://github.com/<usuario>/<repositorio>`
+<https://github.com/ClaiverCo/aopbackend>
 
 ---
 
