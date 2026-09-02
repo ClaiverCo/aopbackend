@@ -20,8 +20,9 @@
             </div>
             <div class="mb-3">
                 <label asp-for="DataHora" class="form-label"></label>
-                <input asp-for="DataHora" type="datetime-local" class="form-control" />
+                <input asp-for="DataHora" type="datetime-local" step="1800" class="form-control" />
                 <span asp-validation-for="DataHora" class="text-danger"></span>
+                <div class="form-text">Atendimentos em intervalos de 30 min. Horário já reservado para o médico fica indisponível.</div>
             </div>
             <div class="mb-3">
                 <label asp-for="Descricao" class="form-label"></label>

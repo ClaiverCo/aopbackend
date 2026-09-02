@@ -44,8 +44,8 @@ public class ConsultasController : Controller
     // GET: /Consultas/Create
     public async Task<IActionResult> Create()
     {
-        await PopularMedicosAsync();
-        return View(new Consulta { DataHora = DateTime.Now.AddDays(1) });
+        await PrepararFormularioAsync();
+        return View(new Consulta { DataHora = ProximoSlot() });
     }
 
     // POST: /Consultas/Create
@@ -54,16 +54,19 @@ public class ConsultasController : Controller
     public async Task<IActionResult> Create([Bind("MedicoId,DataHora,Descricao")] Consulta consulta)
     {
         await AplicarMedicoAsync(consulta);
+        await ValidarHorarioAsync(consulta, ignorarConsultaId: null);
 
         if (!ModelState.IsValid)
         {
-            await PopularMedicosAsync(consulta.MedicoId);
+            await PrepararFormularioAsync(consulta.MedicoId);
             return View(consulta);
         }
 
         consulta.UsuarioId = UsuarioAtualId; // dono vem sempre das claims, nunca do form
         _db.Consultas.Add(consulta);
-        await _db.SaveChangesAsync();
+
+        if (!await SalvarComTratamentoDeConflitoAsync(consulta))
+            return View(consulta);
 
         TempData["Sucesso"] = "Consulta agendada com sucesso.";
         return RedirectToAction(nameof(Index));
@@ -76,7 +79,7 @@ public class ConsultasController : Controller
         var consulta = await BuscarDoUsuarioAsync(id.Value);
         if (consulta is null) return NotFound();
 
-        await PopularMedicosAsync(consulta.MedicoId);
+        await PrepararFormularioAsync(consulta.MedicoId);
         return View(consulta);
     }
 
@@ -91,10 +94,11 @@ public class ConsultasController : Controller
         if (original is null) return NotFound();
 
         await AplicarMedicoAsync(consulta);
+        await ValidarHorarioAsync(consulta, ignorarConsultaId: id);
 
         if (!ModelState.IsValid)
         {
-            await PopularMedicosAsync(consulta.MedicoId);
+            await PrepararFormularioAsync(consulta.MedicoId);
             return View(consulta);
         }
 
@@ -102,7 +106,9 @@ public class ConsultasController : Controller
         original.Especialidade = consulta.Especialidade;
         original.DataHora = consulta.DataHora;
         original.Descricao = consulta.Descricao;
-        await _db.SaveChangesAsync();
+
+        if (!await SalvarComTratamentoDeConflitoAsync(consulta))
+            return View(consulta);
 
         TempData["Sucesso"] = "Consulta atualizada.";
         return RedirectToAction(nameof(Index));
@@ -153,8 +159,54 @@ public class ConsultasController : Controller
         ModelState.Remove(nameof(consulta.Especialidade));
     }
 
-    /// <summary>Monta a lista do &lt;select&gt; de médicos agrupada por especialidade.</summary>
-    private async Task PopularMedicosAsync(int? selecionado = null)
+    /// <summary>
+    /// Ajusta o horário para a grade de slots e verifica: não pode ser no passado
+    /// e não pode colidir com outra consulta do mesmo médico (horário indisponível).
+    /// </summary>
+    private async Task ValidarHorarioAsync(Consulta consulta, int? ignorarConsultaId)
+    {
+        consulta.DataHora = Consulta.AlinharAoSlot(consulta.DataHora);
+        ModelState.Remove(nameof(consulta.DataHora));
+
+        if (consulta.DataHora <= DateTime.Now)
+        {
+            ModelState.AddModelError(nameof(consulta.DataHora), "Escolha uma data/hora futura.");
+            return;
+        }
+
+        if (consulta.MedicoId <= 0) return; // erro de médico já reportado
+
+        bool ocupado = await _db.Consultas.AnyAsync(c =>
+            c.MedicoId == consulta.MedicoId &&
+            c.DataHora == consulta.DataHora &&
+            (ignorarConsultaId == null || c.Id != ignorarConsultaId));
+
+        if (ocupado)
+            ModelState.AddModelError(nameof(consulta.DataHora),
+                "Horário indisponível: outra pessoa já reservou esse horário com este médico. Escolha outro.");
+    }
+
+    /// <summary>Salva tratando a violação do índice único (corrida entre dois agendamentos).</summary>
+    private async Task<bool> SalvarComTratamentoDeConflitoAsync(Consulta consulta)
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            ModelState.AddModelError(nameof(consulta.DataHora),
+                "Horário indisponível: acabou de ser reservado por outra pessoa. Escolha outro.");
+            await PrepararFormularioAsync(consulta.MedicoId);
+            return false;
+        }
+    }
+
+    private static DateTime ProximoSlot() => Consulta.AlinharAoSlot(DateTime.Now.AddDays(1));
+
+    /// <summary>Popula o &lt;select&gt; de médicos e a lista de horários já reservados.</summary>
+    private async Task PrepararFormularioAsync(int? medicoSelecionado = null)
     {
         var medicos = await _db.Medicos
             .OrderBy(m => m.Especialidade).ThenBy(m => m.Nome)
@@ -170,7 +222,14 @@ public class ConsultasController : Controller
             Value = m.Id.ToString(),
             Text = $"Dr(a). {m.Nome} · {m.Crm}",
             Group = grupos[m.Especialidade],
-            Selected = selecionado.HasValue && m.Id == selecionado.Value
+            Selected = medicoSelecionado.HasValue && m.Id == medicoSelecionado.Value
         }).ToList();
+
+        ViewBag.Reservados = await _db.Consultas
+            .Include(c => c.Medico)
+            .Where(c => c.DataHora >= DateTime.Now)
+            .OrderBy(c => c.Medico!.Especialidade).ThenBy(c => c.Medico!.Nome).ThenBy(c => c.DataHora)
+            .Take(80)
+            .ToListAsync();
     }
 }

@@ -105,7 +105,21 @@ dotnet run
 4. **Corpo Clínico** — `/Medicos`: lista os profissionais fictícios pré-cadastrados
    (seed do EF Core via `HasData`), agrupados pelas 7 especialidades — Clínica
    Médica, Pediatria, Ginecologia e Obstetrícia, Cardiologia, Ortopedia e
-   Traumatologia, Dermatologia e Oftalmologia.
+   Traumatologia, Dermatologia e Oftalmologia. Mostra também os próximos
+   horários já reservados de cada médico.
+
+### Horários e indisponibilidade
+
+- Os atendimentos seguem uma **grade de 30 min**; o horário informado é arredondado
+  para o slot mais próximo.
+- **Um médico não pode ter duas consultas no mesmo horário.** Se outra pessoa já
+  reservou aquele horário com aquele médico, o agendamento é recusado com a
+  mensagem *"Horário indisponível…"* — tanto no formulário quanto na API (HTTP 409).
+  Garantido por índice único `(MedicoId, DataHora)` + verificação no servidor.
+- Não é possível agendar em data/hora passada.
+- O banco já vem com **8 pacientes fictícios** (senha `Paciente@123`) e **42
+  consultas reservadas** distribuídas entre as especialidades (seed do EF Core),
+  então já existem horários ocupados para testar a colisão.
 
 Usuários anônimos que tentam acessar `/Consultas` são redirecionados para o login.
 
@@ -117,9 +131,15 @@ Endpoints REST em `/api/consultas`, todos protegidos com `.RequireAuthorization(
 |--------|------|-----------|
 | GET | `/api/consultas` | Lista as consultas do usuário autenticado |
 | GET | `/api/consultas/{id}` | Detalha uma consulta |
-| POST | `/api/consultas` | Cria uma consulta |
-| PUT | `/api/consultas/{id}` | Atualiza uma consulta |
+| POST | `/api/consultas` | Cria uma consulta — **409** se o horário do médico estiver ocupado |
+| PUT | `/api/consultas/{id}` | Atualiza uma consulta — **409** em colisão de horário |
 | DELETE | `/api/consultas/{id}` | Remove uma consulta |
+
+Corpo de `POST`/`PUT` (a especialidade vem do médico):
+
+```json
+{ "medicoId": 7, "dataHora": "2027-05-07T11:00:00", "descricao": "Consulta de rotina" }
+```
 
 Sem autenticação a API responde **401 Unauthorized**. Como a autenticação é por
 **cookie**, para usar o botão *Try it out* do Swagger basta estar logado no app MVC
@@ -133,30 +153,33 @@ e reutilize o cookie `.AspNetCore.Cookies` nas chamadas seguintes.
 src/SistemaGestaoConsultasUVV/
 ├── Program.cs                 # DI (DbContext, auth, Swagger) + pipeline de middleware
 ├── appsettings.json           # ConnectionStrings:DefaultConnection
-├── Data/AppDbContext.cs       # DbSets, índice único de e-mail, relações 1-N, seed de médicos
+├── Data/AppDbContext.cs       # DbSets, índices únicos, relações 1-N, seed (médicos, pacientes, consultas)
 ├── Models/
 │   ├── Usuario.cs             # Nome, Email, Senha (hash), DataCadastro
-│   ├── Consulta.cs            # Especialidade, DataHora, Descricao, UsuarioId, MedicoId
+│   ├── Consulta.cs            # Especialidade, DataHora, Descricao, UsuarioId, MedicoId + grade de slots
 │   └── Medico.cs              # Nome, Especialidade, CRM, Resumo (14 registros via HasData)
 ├── ViewModels/                # RegistroViewModel, LoginViewModel
 ├── Controllers/
 │   ├── ContaController.cs     # Registro, Login, Logout, AcessoNegado
-│   ├── ConsultasController.cs # CRUD [Authorize]
+│   ├── ConsultasController.cs # CRUD [Authorize] + regra de horário indisponível
 │   └── MedicosController.cs   # Corpo clínico (somente leitura)
 ├── Api/ConsultasEndpoints.cs  # Minimal API REST (grupo /api/consultas)
 ├── Views/                     # Razor (Conta/*, Consultas/*, Medicos/*, Home/*)
-└── Migrations/                # InitialCreate, AddMedicos
+└── Migrations/                # InitialCreate, AddMedicos, HorariosReservadosESeed
 ```
 
 ## Decisões de arquitetura
 
 - **MVC (Controllers + Views)** para as telas; **Minimal API** para o CRUD REST.
 - **EF Core Code First**: o banco é gerado a partir das classes de modelo via Migrations.
-  O corpo clínico (14 médicos fictícios nas 7 especialidades) é populado por
-  `modelBuilder.Entity<Medico>().HasData(...)`, entrando junto com a migration.
+  Via `HasData` entram, junto com a migration: 14 médicos fictícios (7 especialidades),
+  8 pacientes fictícios e 42 consultas já reservadas.
 - **Relacionamentos**: `Consulta` pertence a um `Usuario` (cascade) e a um `Medico`
   (restrict). A `Especialidade` da consulta é uma cópia da especialidade do médico,
   gravada no servidor — o formulário só expõe a escolha do médico.
+- **Horário indisponível**: índice único `(MedicoId, DataHora)` no banco + checagem
+  no servidor (MVC e API) impedem dois agendamentos do mesmo médico no mesmo horário;
+  a corrida entre dois `POST` simultâneos é tratada capturando `DbUpdateException`.
 - **Validação** com Data Annotations (`[Required]`, `[EmailAddress]`, `[StringLength]`,
   `[Compare]`) — validada no servidor e no cliente (`_ValidationScriptsPartial`).
 - **Segurança**:

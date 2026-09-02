@@ -45,4 +45,15 @@ public class Consulta
     [ForeignKey(nameof(UsuarioId))]
     [ValidateNever]
     public Usuario? Usuario { get; set; }
+
+    /// <summary>Duração padrão de um horário de atendimento (grade de slots), em minutos.</summary>
+    public const int SlotMinutos = 30;
+
+    /// <summary>Arredonda um horário para a grade de slots de <see cref="SlotMinutos"/> minutos, zerando os segundos.</summary>
+    public static DateTime AlinharAoSlot(DateTime dt)
+    {
+        var semSegundos = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+        int passo = (int)Math.Round(semSegundos.Minute / (double)SlotMinutos) * SlotMinutos;
+        return semSegundos.AddMinutes(passo - semSegundos.Minute);
+    }
 }

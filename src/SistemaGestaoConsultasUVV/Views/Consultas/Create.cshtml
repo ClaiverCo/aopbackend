@@ -1,6 +1,7 @@
 @model Consulta
 @{
     ViewData["Title"] = "Nova Consulta";
+    var reservados = ViewBag.Reservados as IEnumerable<Consulta> ?? Enumerable.Empty<Consulta>();
 }
 
 <div class="row justify-content-center">
@@ -19,8 +20,9 @@
             </div>
             <div class="mb-3">
                 <label asp-for="DataHora" class="form-label"></label>
-                <input asp-for="DataHora" type="datetime-local" class="form-control" />
+                <input asp-for="DataHora" type="datetime-local" step="1800" class="form-control" />
                 <span asp-validation-for="DataHora" class="text-danger"></span>
+                <div class="form-text">Atendimentos em intervalos de 30 min. Se o horário já estiver reservado para o médico, escolha outro.</div>
             </div>
             <div class="mb-3">
                 <label asp-for="Descricao" class="form-label"></label>
@@ -31,6 +33,31 @@
             <button type="submit" class="btn btn-primary">Salvar</button>
             <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
         </form>
+    </div>
+
+    <div class="col-md-5 offset-md-1">
+        <h5>Horários já reservados</h5>
+        @if (!reservados.Any())
+        {
+            <p class="text-muted">Nenhum horário futuro reservado.</p>
+        }
+        else
+        {
+            <p class="text-muted small">Esses horários estão indisponíveis para o médico indicado.</p>
+            @foreach (var grupo in reservados.GroupBy(c => c.Medico!.Nome))
+            {
+                <div class="mb-2">
+                    <strong>Dr(a). @grupo.Key</strong>
+                    <span class="text-muted">· @grupo.First().Medico!.Especialidade</span>
+                    <ul class="small mb-0">
+                        @foreach (var c in grupo)
+                        {
+                            <li>@c.DataHora.ToString("dd/MM/yyyy HH:mm")</li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
     </div>
 </div>
 

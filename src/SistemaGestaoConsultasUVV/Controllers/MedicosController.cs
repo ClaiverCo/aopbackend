@@ -22,6 +22,19 @@ public class MedicosController : Controller
         var medicos = await _db.Medicos
             .OrderBy(m => m.Especialidade).ThenBy(m => m.Nome)
             .ToListAsync();
+
+        var agora = DateTime.Now;
+        var reservados = await _db.Consultas
+            .Where(c => c.DataHora >= agora)
+            .OrderBy(c => c.DataHora)
+            .Select(c => new { c.MedicoId, c.DataHora })
+            .ToListAsync();
+
+        // Próximos horários já reservados por médico (para exibir "indisponível").
+        ViewBag.ProximosReservados = reservados
+            .GroupBy(x => x.MedicoId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.DataHora).Take(4).ToList());
+
         return View(medicos);
     }
 }
