@@ -208,26 +208,10 @@ public class ConsultasController : Controller
             return;
         }
 
-        if (consulta.DataHora <= DateTime.Now)
+        var motivo = Agenda.MotivoHorarioInvalido(consulta.DataHora);
+        if (motivo is not null)
         {
-            ModelState.AddModelError(nameof(consulta.DataHora), "Escolha uma data/hora futura.");
-            return;
-        }
-
-        var dia = DateOnly.FromDateTime(consulta.DataHora);
-        var hora = TimeOnly.FromDateTime(consulta.DataHora);
-
-        if (!Agenda.DiaUtil(dia))
-        {
-            ModelState.AddModelError(nameof(consulta.DataHora),
-                "Não há atendimento nesse dia (fim de semana ou feriado).");
-            return;
-        }
-
-        if (hora < Agenda.Abertura || hora >= Agenda.Fechamento)
-        {
-            ModelState.AddModelError(nameof(consulta.DataHora),
-                "Escolha um horário dentro do expediente (08:00 às 18:00).");
+            ModelState.AddModelError(nameof(consulta.DataHora), motivo);
             return;
         }
 

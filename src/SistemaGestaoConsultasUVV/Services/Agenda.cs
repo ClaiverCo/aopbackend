@@ -35,6 +35,23 @@ public static class Agenda
     public static bool DiaUtil(DateOnly dia) =>
         dia.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && Feriado(dia) is null;
 
+    /// <summary>
+    /// Valida um horário contra as regras de agenda (futuro, dia útil, dentro do
+    /// expediente). Retorna a mensagem do problema, ou <c>null</c> se o horário é válido.
+    /// Usada pelo formulário MVC e pelos endpoints REST — regra única.
+    /// </summary>
+    public static string? MotivoHorarioInvalido(DateTime quando)
+    {
+        if (quando <= DateTime.Now)
+            return "Escolha uma data/hora futura.";
+        if (!DiaUtil(DateOnly.FromDateTime(quando)))
+            return "Não há atendimento nesse dia (fim de semana ou feriado).";
+        var hora = TimeOnly.FromDateTime(quando);
+        if (hora < Abertura || hora >= Fechamento)
+            return "Escolha um horário dentro do expediente (08:00 às 18:00).";
+        return null;
+    }
+
     /// <summary>Nome do feriado nacional na data, ou <c>null</c> se não for feriado.</summary>
     public static string? Feriado(DateOnly dia)
     {

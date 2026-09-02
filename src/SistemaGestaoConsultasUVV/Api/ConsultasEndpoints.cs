@@ -50,8 +50,8 @@ public static class ConsultasEndpoints
             if (medico is null) return Results.BadRequest("Médico inválido.");
 
             var quando = Agenda.AlinharAoSlot(input.DataHora);
-            if (quando <= DateTime.Now)
-                return Results.BadRequest("A data/hora deve ser futura.");
+            var motivo = Agenda.MotivoHorarioInvalido(quando);
+            if (motivo is not null) return Results.BadRequest(motivo);
 
             if (await HorarioOcupadoAsync(db, input.MedicoId, quando, null))
                 return Results.Conflict("Horário indisponível: já reservado para este médico.");
@@ -88,8 +88,8 @@ public static class ConsultasEndpoints
             if (medico is null) return Results.BadRequest("Médico inválido.");
 
             var quando = Agenda.AlinharAoSlot(input.DataHora);
-            if (quando <= DateTime.Now)
-                return Results.BadRequest("A data/hora deve ser futura.");
+            var motivo = Agenda.MotivoHorarioInvalido(quando);
+            if (motivo is not null) return Results.BadRequest(motivo);
 
             if (await HorarioOcupadoAsync(db, input.MedicoId, quando, id))
                 return Results.Conflict("Horário indisponível: já reservado para este médico.");
