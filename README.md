@@ -96,9 +96,16 @@ dotnet run
 2. **Login** — `/Conta/Login`. Cria o cookie de autenticação.
 3. **Consultas** — `/Consultas` (protegido por `[Authorize]`):
    - listar as consultas do usuário logado;
-   - **Nova consulta** (`/Consultas/Create`);
+   - **Nova consulta** (`/Consultas/Create`): o usuário escolhe um **médico** num
+     `<select>` agrupado por especialidade (ex.: agendar com o Dr(a). Anderson
+     Vieira, em Cardiologia). A `Especialidade` da consulta é preenchida no
+     servidor a partir do médico escolhido — não é digitada;
    - **Editar** (`/Consultas/Edit/{id}`) e **Excluir** (`/Consultas/Delete/{id}`).
    - Cada usuário só enxerga e altera as próprias consultas.
+4. **Corpo Clínico** — `/Medicos`: lista os profissionais fictícios pré-cadastrados
+   (seed do EF Core via `HasData`), agrupados pelas 7 especialidades — Clínica
+   Médica, Pediatria, Ginecologia e Obstetrícia, Cardiologia, Ortopedia e
+   Traumatologia, Dermatologia e Oftalmologia.
 
 Usuários anônimos que tentam acessar `/Consultas` são redirecionados para o login.
 
@@ -126,23 +133,30 @@ e reutilize o cookie `.AspNetCore.Cookies` nas chamadas seguintes.
 src/SistemaGestaoConsultasUVV/
 ├── Program.cs                 # DI (DbContext, auth, Swagger) + pipeline de middleware
 ├── appsettings.json           # ConnectionStrings:DefaultConnection
-├── Data/AppDbContext.cs       # DbSets, índice único de e-mail, relação 1-N
+├── Data/AppDbContext.cs       # DbSets, índice único de e-mail, relações 1-N, seed de médicos
 ├── Models/
 │   ├── Usuario.cs             # Nome, Email, Senha (hash), DataCadastro
-│   └── Consulta.cs            # Especialidade, DataHora, Descricao, UsuarioId
+│   ├── Consulta.cs            # Especialidade, DataHora, Descricao, UsuarioId, MedicoId
+│   └── Medico.cs              # Nome, Especialidade, CRM, Resumo (14 registros via HasData)
 ├── ViewModels/                # RegistroViewModel, LoginViewModel
 ├── Controllers/
 │   ├── ContaController.cs     # Registro, Login, Logout, AcessoNegado
-│   └── ConsultasController.cs # CRUD [Authorize]
+│   ├── ConsultasController.cs # CRUD [Authorize]
+│   └── MedicosController.cs   # Corpo clínico (somente leitura)
 ├── Api/ConsultasEndpoints.cs  # Minimal API REST (grupo /api/consultas)
-├── Views/                     # Razor (Conta/*, Consultas/*, Home/*)
-└── Migrations/                # InitialCreate
+├── Views/                     # Razor (Conta/*, Consultas/*, Medicos/*, Home/*)
+└── Migrations/                # InitialCreate, AddMedicos
 ```
 
 ## Decisões de arquitetura
 
 - **MVC (Controllers + Views)** para as telas; **Minimal API** para o CRUD REST.
 - **EF Core Code First**: o banco é gerado a partir das classes de modelo via Migrations.
+  O corpo clínico (14 médicos fictícios nas 7 especialidades) é populado por
+  `modelBuilder.Entity<Medico>().HasData(...)`, entrando junto com a migration.
+- **Relacionamentos**: `Consulta` pertence a um `Usuario` (cascade) e a um `Medico`
+  (restrict). A `Especialidade` da consulta é uma cópia da especialidade do médico,
+  gravada no servidor — o formulário só expõe a escolha do médico.
 - **Validação** com Data Annotations (`[Required]`, `[EmailAddress]`, `[StringLength]`,
   `[Compare]`) — validada no servidor e no cliente (`_ValidationScriptsPartial`).
 - **Segurança**:

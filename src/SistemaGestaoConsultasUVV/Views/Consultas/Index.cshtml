@@ -17,6 +17,7 @@ else
     <table class="table table-striped mt-3">
         <thead>
             <tr>
+                <th>Médico</th>
                 <th>@Html.DisplayNameFor(m => m.Especialidade)</th>
                 <th>@Html.DisplayNameFor(m => m.DataHora)</th>
                 <th>@Html.DisplayNameFor(m => m.Descricao)</th>
@@ -27,6 +28,7 @@ else
         @foreach (var item in Model)
         {
             <tr>
+                <td>@(item.Medico is null ? "—" : $"Dr(a). {item.Medico.Nome}")</td>
                 <td>@item.Especialidade</td>
                 <td>@item.DataHora.ToString("dd/MM/yyyy HH:mm")</td>
                 <td>@item.Descricao</td>

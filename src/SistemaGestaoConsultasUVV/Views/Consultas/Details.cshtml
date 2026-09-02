@@ -6,6 +6,9 @@
 <h2>@ViewData["Title"]</h2>
 
 <dl class="row">
+    <dt class="col-sm-3">Médico</dt>
+    <dd class="col-sm-9">@(Model.Medico is null ? "—" : $"Dr(a). {Model.Medico.Nome} ({Model.Medico.Crm})")</dd>
+
     <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Especialidade)</dt>
     <dd class="col-sm-9">@Model.Especialidade</dd>
 

@@ -10,9 +10,12 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="mb-3">
-                <label asp-for="Especialidade" class="form-label"></label>
-                <input asp-for="Especialidade" class="form-control" />
-                <span asp-validation-for="Especialidade" class="text-danger"></span>
+                <label asp-for="MedicoId" class="form-label"></label>
+                <select asp-for="MedicoId" asp-items="(IEnumerable<SelectListItem>)ViewBag.Medicos" class="form-select">
+                    <option value="">— escolha o médico (por especialidade) —</option>
+                </select>
+                <span asp-validation-for="MedicoId" class="text-danger"></span>
+                <div class="form-text">A especialidade da consulta é definida pelo médico escolhido.</div>
             </div>
             <div class="mb-3">
                 <label asp-for="DataHora" class="form-label"></label>

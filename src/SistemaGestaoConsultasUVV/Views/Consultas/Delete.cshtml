@@ -7,6 +7,9 @@
 <p class="text-danger">Tem certeza de que deseja excluir esta consulta?</p>
 
 <dl class="row">
+    <dt class="col-sm-3">Médico</dt>
+    <dd class="col-sm-9">@(Model.Medico is null ? "—" : $"Dr(a). {Model.Medico.Nome}")</dd>
+
     <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Especialidade)</dt>
     <dd class="col-sm-9">@Model.Especialidade</dd>
 

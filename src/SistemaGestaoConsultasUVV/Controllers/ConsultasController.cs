@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using SistemaGestaoConsultasUVV.Data;
 using SistemaGestaoConsultasUVV.Models;
@@ -25,6 +26,7 @@ public class ConsultasController : Controller
     public async Task<IActionResult> Index()
     {
         var consultas = await _db.Consultas
+            .Include(c => c.Medico)
             .Where(c => c.UsuarioId == UsuarioAtualId)
             .OrderBy(c => c.DataHora)
             .ToListAsync();
@@ -40,16 +42,24 @@ public class ConsultasController : Controller
     }
 
     // GET: /Consultas/Create
-    public IActionResult Create() =>
-        View(new Consulta { DataHora = DateTime.Now.AddDays(1) });
+    public async Task<IActionResult> Create()
+    {
+        await PopularMedicosAsync();
+        return View(new Consulta { DataHora = DateTime.Now.AddDays(1) });
+    }
 
     // POST: /Consultas/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("Especialidade,DataHora,Descricao")] Consulta consulta)
+    public async Task<IActionResult> Create([Bind("MedicoId,DataHora,Descricao")] Consulta consulta)
     {
+        await AplicarMedicoAsync(consulta);
+
         if (!ModelState.IsValid)
+        {
+            await PopularMedicosAsync(consulta.MedicoId);
             return View(consulta);
+        }
 
         consulta.UsuarioId = UsuarioAtualId; // dono vem sempre das claims, nunca do form
         _db.Consultas.Add(consulta);
@@ -64,22 +74,31 @@ public class ConsultasController : Controller
     {
         if (id is null) return NotFound();
         var consulta = await BuscarDoUsuarioAsync(id.Value);
-        return consulta is null ? NotFound() : View(consulta);
+        if (consulta is null) return NotFound();
+
+        await PopularMedicosAsync(consulta.MedicoId);
+        return View(consulta);
     }
 
     // POST: /Consultas/Edit/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, [Bind("Id,Especialidade,DataHora,Descricao")] Consulta consulta)
+    public async Task<IActionResult> Edit(int id, [Bind("Id,MedicoId,DataHora,Descricao")] Consulta consulta)
     {
         if (id != consulta.Id) return NotFound();
 
         var original = await BuscarDoUsuarioAsync(id);
         if (original is null) return NotFound();
 
-        if (!ModelState.IsValid)
-            return View(consulta);
+        await AplicarMedicoAsync(consulta);
 
+        if (!ModelState.IsValid)
+        {
+            await PopularMedicosAsync(consulta.MedicoId);
+            return View(consulta);
+        }
+
+        original.MedicoId = consulta.MedicoId;
         original.Especialidade = consulta.Especialidade;
         original.DataHora = consulta.DataHora;
         original.Descricao = consulta.Descricao;
@@ -113,5 +132,45 @@ public class ConsultasController : Controller
     }
 
     private Task<Consulta?> BuscarDoUsuarioAsync(int id) =>
-        _db.Consultas.FirstOrDefaultAsync(c => c.Id == id && c.UsuarioId == UsuarioAtualId);
+        _db.Consultas
+            .Include(c => c.Medico)
+            .FirstOrDefaultAsync(c => c.Id == id && c.UsuarioId == UsuarioAtualId);
+
+    /// <summary>
+    /// Resolve o médico escolhido e copia a especialidade dele para a consulta.
+    /// A especialidade não é digitada — vem sempre do cadastro do médico.
+    /// </summary>
+    private async Task AplicarMedicoAsync(Consulta consulta)
+    {
+        var medico = await _db.Medicos.FindAsync(consulta.MedicoId);
+        if (medico is null)
+        {
+            ModelState.AddModelError(nameof(consulta.MedicoId), "Selecione um médico válido.");
+            return;
+        }
+
+        consulta.Especialidade = medico.Especialidade;
+        ModelState.Remove(nameof(consulta.Especialidade));
+    }
+
+    /// <summary>Monta a lista do &lt;select&gt; de médicos agrupada por especialidade.</summary>
+    private async Task PopularMedicosAsync(int? selecionado = null)
+    {
+        var medicos = await _db.Medicos
+            .OrderBy(m => m.Especialidade).ThenBy(m => m.Nome)
+            .ToListAsync();
+
+        var grupos = medicos
+            .Select(m => m.Especialidade)
+            .Distinct()
+            .ToDictionary(e => e, e => new SelectListGroup { Name = e });
+
+        ViewBag.Medicos = medicos.Select(m => new SelectListItem
+        {
+            Value = m.Id.ToString(),
+            Text = $"Dr(a). {m.Nome} · {m.Crm}",
+            Group = grupos[m.Especialidade],
+            Selected = selecionado.HasValue && m.Id == selecionado.Value
+        }).ToList();
+    }
 }

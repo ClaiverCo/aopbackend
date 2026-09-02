@@ -11,10 +11,21 @@ public class Consulta
 {
     public int Id { get; set; }
 
+    // Preenchida no servidor a partir da especialidade do médico escolhido —
+    // não é digitada pelo usuário. Mantida na entidade como exige o enunciado.
     [Required(ErrorMessage = "A especialidade é obrigatória.")]
     [StringLength(100, ErrorMessage = "A especialidade deve ter no máximo 100 caracteres.")]
     [Display(Name = "Especialidade")]
     public string Especialidade { get; set; } = string.Empty;
+
+    // Médico escolhido para a consulta (Relacionamento).
+    [Display(Name = "Médico")]
+    [Range(1, int.MaxValue, ErrorMessage = "Selecione um médico.")]
+    public int MedicoId { get; set; }
+
+    [ForeignKey(nameof(MedicoId))]
+    [ValidateNever]
+    public Medico? Medico { get; set; }
 
     [Required(ErrorMessage = "A data/hora é obrigatória.")]
     [DataType(DataType.DateTime)]
