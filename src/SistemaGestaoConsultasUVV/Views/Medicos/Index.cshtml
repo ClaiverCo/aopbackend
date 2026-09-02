@@ -1,12 +1,14 @@
 @model IEnumerable<Medico>
 @{
     ViewData["Title"] = "Corpo Clínico";
-    var proximos = ViewBag.ProximosReservados as IDictionary<int, List<DateTime>>
-                   ?? new Dictionary<int, List<DateTime>>();
 }
 
 <h2>@ViewData["Title"]</h2>
-<p class="text-muted">Escolha o profissional pela especialidade ao agendar uma consulta.</p>
+<p class="text-muted">
+    Escolha o profissional pela especialidade ao agendar. A disponibilidade de cada
+    horário (verde = livre, vermelho = ocupado) aparece no calendário da tela de
+    <a asp-controller="Consultas" asp-action="Create">nova consulta</a>.
+</p>
 
 @foreach (var grupo in Model.GroupBy(m => m.Especialidade))
 {
@@ -18,13 +20,6 @@
                 <strong>Dr(a). @medico.Nome</strong>
                 <span class="text-muted">· @medico.Crm</span>
                 <div class="small text-muted">@medico.Resumo</div>
-                @if (proximos.TryGetValue(medico.Id, out var datas) && datas.Count > 0)
-                {
-                    <div class="small mt-1">
-                        <span class="text-danger">Horários indisponíveis:</span>
-                        @string.Join(" · ", datas.Select(d => d.ToString("dd/MM HH:mm")))
-                    </div>
-                }
             </li>
         }
     </ul>

@@ -1,11 +1,10 @@
 @model Consulta
 @{
     ViewData["Title"] = "Nova Consulta";
-    var reservados = ViewBag.Reservados as IEnumerable<Consulta> ?? Enumerable.Empty<Consulta>();
 }
 
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-lg-8">
         <h2>@ViewData["Title"]</h2>
         <form asp-action="Create" method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -18,12 +17,12 @@
                 <span asp-validation-for="MedicoId" class="text-danger"></span>
                 <div class="form-text">A especialidade da consulta é definida pelo médico escolhido.</div>
             </div>
+
             <div class="mb-3">
-                <label asp-for="DataHora" class="form-label"></label>
-                <input asp-for="DataHora" type="datetime-local" step="1800" class="form-control" />
-                <span asp-validation-for="DataHora" class="text-danger"></span>
-                <div class="form-text">Atendimentos em intervalos de 30 min. Se o horário já estiver reservado para o médico, escolha outro.</div>
+                <label class="form-label">Data e horário</label>
+                <partial name="_SeletorHorario" model="Model" />
             </div>
+
             <div class="mb-3">
                 <label asp-for="Descricao" class="form-label"></label>
                 <textarea asp-for="Descricao" class="form-control" rows="3"></textarea>
@@ -33,31 +32,6 @@
             <button type="submit" class="btn btn-primary">Salvar</button>
             <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
         </form>
-    </div>
-
-    <div class="col-md-5 offset-md-1">
-        <h5>Horários já reservados</h5>
-        @if (!reservados.Any())
-        {
-            <p class="text-muted">Nenhum horário futuro reservado.</p>
-        }
-        else
-        {
-            <p class="text-muted small">Esses horários estão indisponíveis para o médico indicado.</p>
-            @foreach (var grupo in reservados.GroupBy(c => c.Medico!.Nome))
-            {
-                <div class="mb-2">
-                    <strong>Dr(a). @grupo.Key</strong>
-                    <span class="text-muted">· @grupo.First().Medico!.Especialidade</span>
-                    <ul class="small mb-0">
-                        @foreach (var c in grupo)
-                        {
-                            <li>@c.DataHora.ToString("dd/MM/yyyy HH:mm")</li>
-                        }
-                    </ul>
-                </div>
-            }
-        }
     </div>
 </div>
 

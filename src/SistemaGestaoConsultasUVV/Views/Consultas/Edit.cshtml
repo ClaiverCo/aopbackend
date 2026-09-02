@@ -4,7 +4,7 @@
 }
 
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-lg-8">
         <h2>@ViewData["Title"]</h2>
         <form asp-action="Edit" method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -18,12 +18,12 @@
                 <span asp-validation-for="MedicoId" class="text-danger"></span>
                 <div class="form-text">A especialidade da consulta é definida pelo médico escolhido.</div>
             </div>
+
             <div class="mb-3">
-                <label asp-for="DataHora" class="form-label"></label>
-                <input asp-for="DataHora" type="datetime-local" step="1800" class="form-control" />
-                <span asp-validation-for="DataHora" class="text-danger"></span>
-                <div class="form-text">Atendimentos em intervalos de 30 min. Horário já reservado para o médico fica indisponível.</div>
+                <label class="form-label">Data e horário</label>
+                <partial name="_SeletorHorario" model="Model" />
             </div>
+
             <div class="mb-3">
                 <label asp-for="Descricao" class="form-label"></label>
                 <textarea asp-for="Descricao" class="form-control" rows="3"></textarea>

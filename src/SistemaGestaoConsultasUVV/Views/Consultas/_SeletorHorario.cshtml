@@ -1,0 +1,153 @@
+@model SistemaGestaoConsultasUVV.Models.Consulta
+@{
+    var feriadosJson = ViewBag.FeriadosJson as IEnumerable<string> ?? Enumerable.Empty<string>();
+    var valorInicial = Model.DataHora == default ? "" : Model.DataHora.ToString("yyyy-MM-ddTHH:mm");
+}
+
+<style>
+    .cal-wrap { border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; }
+    .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+    .cal-head strong { font-size: 1.05rem; }
+    .cal-semana, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-semana div { text-align: center; font-size: .75rem; color: #6c757d; padding: 2px 0; }
+    .cal-dia { border: 1px solid transparent; border-radius: .35rem; padding: .4rem 0; font-size: .85rem; cursor: pointer; }
+    .cal-dia.aberto { background: #d1e7dd; color: #0f5132; }         /* verde = disponível */
+    .cal-dia.aberto:hover { background: #bcd0c7; }
+    .cal-dia.fechado { background: #f1f3f5; color: #adb5bd; cursor: not-allowed; } /* cinza = fim de semana / feriado / passado */
+    .cal-dia.fora { opacity: .4; }
+    .cal-dia.sel { border-color: #0d6efd; font-weight: 700; }
+    .cal-slots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: .5rem; }
+    .cal-slot { border: 1px solid transparent; border-radius: .35rem; padding: .35rem .6rem; font-size: .85rem; cursor: pointer; }
+    .cal-slot.livre { background: #d1e7dd; color: #0f5132; }         /* verde = horário livre */
+    .cal-slot.ocupado { background: #f8d7da; color: #842029; cursor: not-allowed; } /* vermelho = indisponível */
+    .cal-slot.sel { border-color: #0d6efd; font-weight: 700; }
+    .cal-legenda { font-size: .75rem; color: #6c757d; margin-top: .5rem; }
+    .cal-legenda span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin: 0 4px 2px 10px; }
+</style>
+
+<input type="hidden" name="DataHora" id="campoDataHora" value="@valorInicial" />
+
+<div class="cal-wrap">
+    <div class="cal-head">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="calPrev">&laquo;</button>
+        <strong id="calMes"></strong>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="calNext">&raquo;</button>
+    </div>
+    <div class="cal-semana">
+        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legenda">
+        <span style="background:#d1e7dd"></span> disponível
+        <span style="background:#f8d7da"></span> indisponível
+        <span style="background:#f1f3f5"></span> sem atendimento (fim de semana / feriado)
+    </div>
+    <div id="calSlots" class="d-none"></div>
+    <div id="calSelecionado" class="fw-bold mt-2"></div>
+</div>
+<span asp-validation-for="DataHora" class="text-danger d-block mt-1"></span>
+
+<script>
+(function () {
+    const feriados = new Set(@Html.Raw(Json.Serialize(feriadosJson)));
+    const urlDisp = '@Url.Action("Disponibilidade", "Consultas")';
+    const selMedico = document.getElementById('MedicoId');
+    const campo = document.getElementById('campoDataHora');
+    const elMes = document.getElementById('calMes');
+    const elGrid = document.getElementById('calGrid');
+    const elSlots = document.getElementById('calSlots');
+    const elSel = document.getElementById('calSelecionado');
+    const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    let ref = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    let diaSelecionado = null;
+
+    const p2 = n => String(n).padStart(2, '0');
+    const ymd = d => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    const fimDeSemana = d => d.getDay() === 0 || d.getDay() === 6;
+    const fechado = d => d < hoje || fimDeSemana(d) || feriados.has(ymd(d));
+
+    function render() {
+        elMes.textContent = nomesMes[ref.getMonth()] + ' ' + ref.getFullYear();
+        elGrid.innerHTML = '';
+        const primeiro = new Date(ref.getFullYear(), ref.getMonth(), 1);
+        const inicio = new Date(primeiro);
+        inicio.setDate(1 - primeiro.getDay());
+        for (let i = 0; i < 42; i++) {
+            const d = new Date(inicio); d.setDate(inicio.getDate() + i);
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'cal-dia';
+            cell.textContent = d.getDate();
+            if (d.getMonth() !== ref.getMonth()) cell.classList.add('fora');
+            if (fechado(d)) { cell.classList.add('fechado'); cell.disabled = true; }
+            else cell.classList.add('aberto');
+            if (diaSelecionado && ymd(d) === ymd(diaSelecionado)) cell.classList.add('sel');
+            cell.addEventListener('click', () => { diaSelecionado = d; render(); carregarSlots(d); });
+            elGrid.appendChild(cell);
+        }
+    }
+
+    async function carregarSlots(d) {
+        elSlots.classList.remove('d-none');
+        if (!selMedico || !selMedico.value) {
+            elSlots.innerHTML = '<div class="text-danger small">Escolha o médico primeiro.</div>';
+            return;
+        }
+        elSlots.innerHTML = '<div class="text-muted small">Carregando…</div>';
+        let info;
+        try {
+            const resp = await fetch(urlDisp + '?medicoId=' + encodeURIComponent(selMedico.value) + '&data=' + ymd(d));
+            info = await resp.json();
+        } catch { elSlots.innerHTML = '<div class="text-danger small">Falha ao carregar horários.</div>'; return; }
+
+        elSlots.innerHTML = '';
+        if (!info.diaUtil) {
+            elSlots.innerHTML = '<div class="text-muted small">' + (info.motivo || 'Sem atendimento neste dia') + '</div>';
+            return;
+        }
+        const titulo = document.createElement('div');
+        titulo.className = 'small text-muted';
+        titulo.textContent = 'Horários em ' + d.toLocaleDateString('pt-BR') + ' (08:00–18:00)';
+        elSlots.appendChild(titulo);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'cal-slots';
+        info.slots.forEach(s => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = s.hora;
+            b.className = 'cal-slot ' + (s.disponivel ? 'livre' : 'ocupado');
+            if (!s.disponivel) { b.disabled = true; }
+            else b.addEventListener('click', () => {
+                campo.value = s.iso;
+                wrap.querySelectorAll('.cal-slot').forEach(x => x.classList.remove('sel'));
+                b.classList.add('sel');
+                elSel.textContent = 'Selecionado: ' + d.toLocaleDateString('pt-BR') + ' às ' + s.hora;
+                if (diaSelecionado && ymd(d) !== ymd(diaSelecionado)) { diaSelecionado = d; render(); }
+            });
+            wrap.appendChild(b);
+        });
+        elSlots.appendChild(wrap);
+    }
+
+    document.getElementById('calPrev').addEventListener('click', () => { ref.setMonth(ref.getMonth() - 1); render(); });
+    document.getElementById('calNext').addEventListener('click', () => { ref.setMonth(ref.getMonth() + 1); render(); });
+    if (selMedico) selMedico.addEventListener('change', () => {
+        campo.value = ''; elSel.textContent = '';
+        if (diaSelecionado) carregarSlots(diaSelecionado);
+    });
+
+    if (campo.value) {
+        const dt = new Date(campo.value);
+        if (!isNaN(dt)) {
+            ref = new Date(dt.getFullYear(), dt.getMonth(), 1);
+            diaSelecionado = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+            elSel.textContent = 'Selecionado: ' + dt.toLocaleDateString('pt-BR') + ' às ' + p2(dt.getHours()) + ':' + p2(dt.getMinutes());
+        }
+    }
+    render();
+    if (diaSelecionado) carregarSlots(diaSelecionado);
+})();
+</script>

@@ -105,21 +105,33 @@ dotnet run
 4. **Corpo Clínico** — `/Medicos`: lista os profissionais fictícios pré-cadastrados
    (seed do EF Core via `HasData`), agrupados pelas 7 especialidades — Clínica
    Médica, Pediatria, Ginecologia e Obstetrícia, Cardiologia, Ortopedia e
-   Traumatologia, Dermatologia e Oftalmologia. Mostra também os próximos
-   horários já reservados de cada médico.
+   Traumatologia, Dermatologia e Oftalmologia.
 
-### Horários e indisponibilidade
+### Calendário de disponibilidade
 
-- Os atendimentos seguem uma **grade de 30 min**; o horário informado é arredondado
-  para o slot mais próximo.
-- **Um médico não pode ter duas consultas no mesmo horário.** Se outra pessoa já
-  reservou aquele horário com aquele médico, o agendamento é recusado com a
-  mensagem *"Horário indisponível…"* — tanto no formulário quanto na API (HTTP 409).
-  Garantido por índice único `(MedicoId, DataHora)` + verificação no servidor.
-- Não é possível agendar em data/hora passada.
+Na tela de **Nova consulta / Editar**, depois de escolher o médico, um calendário
+mostra a disponibilidade:
+
+- **dias** — verde = dia útil disponível; cinza = fim de semana, **feriado nacional**
+  ou data passada (não clicáveis);
+- ao clicar num dia, aparecem os **horários comerciais de 08:00 às 18:00** (grade de
+  30 min): **verde = livre**, **vermelho = indisponível** (já reservado para aquele
+  médico ou já passou). Clicar num horário verde o seleciona.
+
+O calendário é alimentado pelo endpoint `GET /Consultas/Disponibilidade?medicoId=&data=`.
+Os feriados (fixos + móveis derivados da Páscoa: Carnaval, Sexta-feira Santa,
+Corpus Christi) são calculados em `Services/Agenda.cs`.
+
+### Regras de horário (validadas também no servidor)
+
+- **Um médico não pode ter duas consultas no mesmo horário** — índice único
+  `(MedicoId, DataHora)` + verificação no servidor. Colisão é recusada com
+  *"Horário indisponível…"* no formulário e **HTTP 409** na API.
+- Grade de 30 min; só dias úteis (seg–sex, exceto feriados); só 08:00–18:00; nada no passado.
+- A corrida entre dois agendamentos simultâneos é tratada capturando `DbUpdateException`.
 - O banco já vem com **8 pacientes fictícios** (senha `Paciente@123`) e **42
   consultas reservadas** distribuídas entre as especialidades (seed do EF Core),
-  então já existem horários ocupados para testar a colisão.
+  então já existem horários vermelhos para testar.
 
 Usuários anônimos que tentam acessar `/Consultas` são redirecionados para o login.
 
@@ -161,10 +173,11 @@ src/SistemaGestaoConsultasUVV/
 ├── ViewModels/                # RegistroViewModel, LoginViewModel
 ├── Controllers/
 │   ├── ContaController.cs     # Registro, Login, Logout, AcessoNegado
-│   ├── ConsultasController.cs # CRUD [Authorize] + regra de horário indisponível
+│   ├── ConsultasController.cs # CRUD [Authorize] + Disponibilidade (JSON do calendário)
 │   └── MedicosController.cs   # Corpo clínico (somente leitura)
+├── Services/Agenda.cs         # Expediente 08–18, grade de 30 min, fins de semana e feriados
 ├── Api/ConsultasEndpoints.cs  # Minimal API REST (grupo /api/consultas)
-├── Views/                     # Razor (Conta/*, Consultas/*, Medicos/*, Home/*)
+├── Views/                     # Razor (Conta/*, Consultas/* + _SeletorHorario, Medicos/*, Home/*)
 └── Migrations/                # InitialCreate, AddMedicos, HorariosReservadosESeed
 ```
 

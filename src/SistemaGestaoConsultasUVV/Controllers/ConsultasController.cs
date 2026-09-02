@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using SistemaGestaoConsultasUVV.Data;
 using SistemaGestaoConsultasUVV.Models;
+using SistemaGestaoConsultasUVV.Services;
 
 namespace SistemaGestaoConsultasUVV.Controllers;
 
@@ -45,7 +46,7 @@ public class ConsultasController : Controller
     public async Task<IActionResult> Create()
     {
         await PrepararFormularioAsync();
-        return View(new Consulta { DataHora = ProximoSlot() });
+        return View(new Consulta());
     }
 
     // POST: /Consultas/Create
@@ -137,6 +138,48 @@ public class ConsultasController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// GET: /Consultas/Disponibilidade?medicoId=7&amp;data=2026-09-15
+    /// Alimenta o calendário: diz se o dia é útil e o status (livre/ocupado) de
+    /// cada horário comercial (08:00–18:00, de 30 em 30 min).
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Disponibilidade(int medicoId, DateOnly data)
+    {
+        bool fimDeSemana = data.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        var feriado = Agenda.Feriado(data);
+        bool passado = data < DateOnly.FromDateTime(DateTime.Today);
+
+        if (passado || fimDeSemana || feriado is not null)
+        {
+            string motivo = passado ? "Data passada"
+                          : fimDeSemana ? "Fim de semana"
+                          : $"Feriado: {feriado}";
+            return Json(new { diaUtil = false, motivo, slots = Array.Empty<object>() });
+        }
+
+        var inicio = data.ToDateTime(TimeOnly.MinValue);
+        var fim = inicio.AddDays(1);
+        var ocupados = (await _db.Consultas
+            .Where(c => c.MedicoId == medicoId && c.DataHora >= inicio && c.DataHora < fim)
+            .Select(c => c.DataHora)
+            .ToListAsync()).ToHashSet();
+
+        var agora = DateTime.Now;
+        var slots = Agenda.Slots().Select(t =>
+        {
+            var dt = data.ToDateTime(t);
+            return new
+            {
+                hora = t.ToString("HH:mm"),
+                iso = dt.ToString("yyyy-MM-ddTHH:mm"),
+                disponivel = dt > agora && !ocupados.Contains(dt)
+            };
+        });
+
+        return Json(new { diaUtil = true, motivo = (string?)null, slots });
+    }
+
     private Task<Consulta?> BuscarDoUsuarioAsync(int id) =>
         _db.Consultas
             .Include(c => c.Medico)
@@ -160,17 +203,40 @@ public class ConsultasController : Controller
     }
 
     /// <summary>
-    /// Ajusta o horário para a grade de slots e verifica: não pode ser no passado
-    /// e não pode colidir com outra consulta do mesmo médico (horário indisponível).
+    /// Repete no servidor as mesmas regras do calendário: horário escolhido,
+    /// futuro, em dia útil, dentro do expediente (08:00–18:00) e livre para o médico.
     /// </summary>
     private async Task ValidarHorarioAsync(Consulta consulta, int? ignorarConsultaId)
     {
         consulta.DataHora = Consulta.AlinharAoSlot(consulta.DataHora);
         ModelState.Remove(nameof(consulta.DataHora));
 
+        if (consulta.DataHora == default)
+        {
+            ModelState.AddModelError(nameof(consulta.DataHora), "Selecione um horário no calendário.");
+            return;
+        }
+
         if (consulta.DataHora <= DateTime.Now)
         {
             ModelState.AddModelError(nameof(consulta.DataHora), "Escolha uma data/hora futura.");
+            return;
+        }
+
+        var dia = DateOnly.FromDateTime(consulta.DataHora);
+        var hora = TimeOnly.FromDateTime(consulta.DataHora);
+
+        if (!Agenda.DiaUtil(dia))
+        {
+            ModelState.AddModelError(nameof(consulta.DataHora),
+                "Não há atendimento nesse dia (fim de semana ou feriado).");
+            return;
+        }
+
+        if (hora < Agenda.Abertura || hora >= Agenda.Fechamento)
+        {
+            ModelState.AddModelError(nameof(consulta.DataHora),
+                "Escolha um horário dentro do expediente (08:00 às 18:00).");
             return;
         }
 
@@ -203,9 +269,7 @@ public class ConsultasController : Controller
         }
     }
 
-    private static DateTime ProximoSlot() => Consulta.AlinharAoSlot(DateTime.Now.AddDays(1));
-
-    /// <summary>Popula o &lt;select&gt; de médicos e a lista de horários já reservados.</summary>
+    /// <summary>Popula o &lt;select&gt; de médicos e a lista de feriados para o calendário.</summary>
     private async Task PrepararFormularioAsync(int? medicoSelecionado = null)
     {
         var medicos = await _db.Medicos
@@ -225,11 +289,11 @@ public class ConsultasController : Controller
             Selected = medicoSelecionado.HasValue && m.Id == medicoSelecionado.Value
         }).ToList();
 
-        ViewBag.Reservados = await _db.Consultas
-            .Include(c => c.Medico)
-            .Where(c => c.DataHora >= DateTime.Now)
-            .OrderBy(c => c.Medico!.Especialidade).ThenBy(c => c.Medico!.Nome).ThenBy(c => c.DataHora)
-            .Take(80)
-            .ToListAsync();
+        int anoBase = DateTime.Today.Year;
+        ViewBag.FeriadosJson = Enumerable.Range(anoBase, 3)
+            .SelectMany(a => Agenda.FeriadosNacionais(a))
+            .Select(f => f.Data.ToString("yyyy-MM-dd"))
+            .Distinct()
+            .ToList();
     }
 }
