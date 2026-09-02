@@ -32,7 +32,4 @@ public class Medico
 
     [ValidateNever]
     public ICollection<Consulta> Consultas { get; set; } = new List<Consulta>();
-
-    /// <summary>Rótulo pronto para listas/telas: "Dr(a). Nome — Especialidade".</summary>
-    public string NomeExibicao => $"Dr(a). {Nome} — {Especialidade}";
 }

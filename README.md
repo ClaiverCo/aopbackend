@@ -39,7 +39,7 @@ na chave `ConnectionStrings:DefaultConnection`. O valor padrão aponta para o SQ
 
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Server=.\\SQLEXPRESS;Database=SistemaGestaoConsultasUVV;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  "DefaultConnection": "Server=.\\SQLEXPRESS;Database=SistemaGestaoConsultasUVV;Trusted_Connection=True;TrustServerCertificate=True"
 }
 ```
 
@@ -63,8 +63,10 @@ cd src/SistemaGestaoConsultasUVV
 dotnet ef database update
 ```
 
-Isso executa a migration `InitialCreate` e cria o banco `SistemaGestaoConsultasUVV`
-com as tabelas `Usuarios` e `Consultas`.
+Isso aplica as três migrations (`InitialCreate`, `AddMedicos`,
+`HorariosReservadosESeed`), criando o banco `SistemaGestaoConsultasUVV` com as
+tabelas `Usuarios`, `Consultas` e `Medicos` e já carregando o seed (14 médicos,
+8 pacientes fictícios e 42 consultas reservadas).
 
 > Equivale ao `Update-Database` do **Package Manager Console** do Visual Studio.
 > A aplicação também executa `Database.Migrate()` na inicialização, então rodar o
@@ -73,10 +75,11 @@ com as tabelas `Usuarios` e `Consultas`.
 Comandos úteis:
 
 ```bash
-# recriar a migration do zero
-dotnet ef migrations add InitialCreate -o Migrations
+# recriar o banco do zero (drop + recria + seed)
+dotnet ef database drop -f
+dotnet ef database update
 
-# reverter o banco
+# reverter todas as migrations
 dotnet ef database update 0
 ```
 
@@ -104,8 +107,8 @@ dotnet run
    - Cada usuário só enxerga e altera as próprias consultas.
 4. **Corpo Clínico** — `/Medicos`: lista os profissionais fictícios pré-cadastrados
    (seed do EF Core via `HasData`), agrupados pelas 7 especialidades — Clínica
-   Médica, Pediatria, Ginecologia e Obstetrícia, Cardiologia, Ortopedia e
-   Traumatologia, Dermatologia e Oftalmologia.
+   Médica (Clínico Geral), Pediatria, Ginecologia e Obstetrícia, Cardiologia,
+   Ortopedia e Traumatologia, Dermatologia e Oftalmologia.
 
 ### Calendário de disponibilidade
 

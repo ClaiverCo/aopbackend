@@ -12,10 +12,12 @@ public class Consulta
     public int Id { get; set; }
 
     // Preenchida no servidor a partir da especialidade do médico escolhido —
-    // não é digitada pelo usuário. Mantida na entidade como exige o enunciado.
+    // não é digitada pelo usuário (por isso [ValidateNever]). Mantida na entidade
+    // como exige o enunciado, com as Data Annotations de tamanho/obrigatoriedade.
     [Required(ErrorMessage = "A especialidade é obrigatória.")]
     [StringLength(100, ErrorMessage = "A especialidade deve ter no máximo 100 caracteres.")]
     [Display(Name = "Especialidade")]
+    [ValidateNever]
     public string Especialidade { get; set; } = string.Empty;
 
     // Médico escolhido para a consulta (Relacionamento).
@@ -45,15 +47,4 @@ public class Consulta
     [ForeignKey(nameof(UsuarioId))]
     [ValidateNever]
     public Usuario? Usuario { get; set; }
-
-    /// <summary>Duração padrão de um horário de atendimento (grade de slots), em minutos.</summary>
-    public const int SlotMinutos = 30;
-
-    /// <summary>Arredonda um horário para a grade de slots de <see cref="SlotMinutos"/> minutos, zerando os segundos.</summary>
-    public static DateTime AlinharAoSlot(DateTime dt)
-    {
-        var semSegundos = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
-        int passo = (int)Math.Round(semSegundos.Minute / (double)SlotMinutos) * SlotMinutos;
-        return semSegundos.AddMinutes(passo - semSegundos.Minute);
-    }
 }

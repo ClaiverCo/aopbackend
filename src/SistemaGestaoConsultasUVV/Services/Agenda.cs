@@ -10,9 +10,10 @@ public static class Agenda
     /// <summary>Primeiro horário de atendimento (08:00).</summary>
     public static readonly TimeOnly Abertura = new(8, 0);
 
-    /// <summary>Fim do expediente (18:00) — o último slot começa 30 min antes.</summary>
+    /// <summary>Fim do expediente (18:00) — o último slot começa <see cref="SlotMinutos"/> min antes.</summary>
     public static readonly TimeOnly Fechamento = new(18, 0);
 
+    /// <summary>Duração de cada horário de atendimento (a grade de slots), em minutos.</summary>
     public const int SlotMinutos = 30;
 
     /// <summary>Horários possíveis num dia: 08:00, 08:30, … 17:30.</summary>
@@ -20,6 +21,14 @@ public static class Agenda
     {
         for (var t = Abertura; t < Fechamento; t = t.AddMinutes(SlotMinutos))
             yield return t;
+    }
+
+    /// <summary>Arredonda um horário para a grade de <see cref="SlotMinutos"/> min, zerando os segundos.</summary>
+    public static DateTime AlinharAoSlot(DateTime dt)
+    {
+        var semSegundos = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+        int passo = (int)Math.Round(semSegundos.Minute / (double)SlotMinutos) * SlotMinutos;
+        return semSegundos.AddMinutes(passo - semSegundos.Minute);
     }
 
     /// <summary>Dia útil = segunda a sexta e não é feriado nacional.</summary>

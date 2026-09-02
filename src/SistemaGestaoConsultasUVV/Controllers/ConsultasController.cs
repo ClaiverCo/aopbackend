@@ -23,7 +23,6 @@ public class ConsultasController : Controller
     private int UsuarioAtualId =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // GET: /Consultas
     public async Task<IActionResult> Index()
     {
         var consultas = await _db.Consultas
@@ -34,7 +33,6 @@ public class ConsultasController : Controller
         return View(consultas);
     }
 
-    // GET: /Consultas/Details/5
     public async Task<IActionResult> Details(int? id)
     {
         if (id is null) return NotFound();
@@ -42,14 +40,12 @@ public class ConsultasController : Controller
         return consulta is null ? NotFound() : View(consulta);
     }
 
-    // GET: /Consultas/Create
     public async Task<IActionResult> Create()
     {
         await PrepararFormularioAsync();
         return View(new Consulta());
     }
 
-    // POST: /Consultas/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create([Bind("MedicoId,DataHora,Descricao")] Consulta consulta)
@@ -73,7 +69,6 @@ public class ConsultasController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET: /Consultas/Edit/5
     public async Task<IActionResult> Edit(int? id)
     {
         if (id is null) return NotFound();
@@ -84,7 +79,6 @@ public class ConsultasController : Controller
         return View(consulta);
     }
 
-    // POST: /Consultas/Edit/5
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, [Bind("Id,MedicoId,DataHora,Descricao")] Consulta consulta)
@@ -115,7 +109,6 @@ public class ConsultasController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET: /Consultas/Delete/5
     public async Task<IActionResult> Delete(int? id)
     {
         if (id is null) return NotFound();
@@ -123,7 +116,6 @@ public class ConsultasController : Controller
         return consulta is null ? NotFound() : View(consulta);
     }
 
-    // POST: /Consultas/Delete/5
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
@@ -199,7 +191,6 @@ public class ConsultasController : Controller
         }
 
         consulta.Especialidade = medico.Especialidade;
-        ModelState.Remove(nameof(consulta.Especialidade));
     }
 
     /// <summary>
@@ -208,7 +199,7 @@ public class ConsultasController : Controller
     /// </summary>
     private async Task ValidarHorarioAsync(Consulta consulta, int? ignorarConsultaId)
     {
-        consulta.DataHora = Consulta.AlinharAoSlot(consulta.DataHora);
+        consulta.DataHora = Agenda.AlinharAoSlot(consulta.DataHora);
         ModelState.Remove(nameof(consulta.DataHora));
 
         if (consulta.DataHora == default)

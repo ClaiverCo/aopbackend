@@ -17,7 +17,6 @@ public class MedicosController : Controller
 
     public MedicosController(AppDbContext db) => _db = db;
 
-    // GET: /Medicos
     public async Task<IActionResult> Index()
     {
         var medicos = await _db.Medicos

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SistemaGestaoConsultasUVV.Data;
 using SistemaGestaoConsultasUVV.Models;
+using SistemaGestaoConsultasUVV.Services;
 
 namespace SistemaGestaoConsultasUVV.Api;
 
@@ -48,7 +49,7 @@ public static class ConsultasEndpoints
             var medico = await db.Medicos.FindAsync(input.MedicoId);
             if (medico is null) return Results.BadRequest("Médico inválido.");
 
-            var quando = Consulta.AlinharAoSlot(input.DataHora);
+            var quando = Agenda.AlinharAoSlot(input.DataHora);
             if (quando <= DateTime.Now)
                 return Results.BadRequest("A data/hora deve ser futura.");
 
@@ -86,7 +87,7 @@ public static class ConsultasEndpoints
             var medico = await db.Medicos.FindAsync(input.MedicoId);
             if (medico is null) return Results.BadRequest("Médico inválido.");
 
-            var quando = Consulta.AlinharAoSlot(input.DataHora);
+            var quando = Agenda.AlinharAoSlot(input.DataHora);
             if (quando <= DateTime.Now)
                 return Results.BadRequest("A data/hora deve ser futura.");
 
